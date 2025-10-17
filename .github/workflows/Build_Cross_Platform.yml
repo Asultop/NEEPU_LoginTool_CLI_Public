@@ -1,0 +1,244 @@
+name: Cross-Platform Build
+
+# 配置触发条件（可根据需要修改）
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# 自定义配置结构体 - 在这里填写项目相关参数
+env:
+  # 项目基本信息
+  PROJECT_NAME: "NeepuSTU_CLI"                  # 项目名称（用于输出文件和产物命名）
+  MAIN_SOURCE_FILE: "NeepuCli.cpp"    # 主源文件路径
+  CXX_STANDARD: "c++17"                  # C++标准版本
+  
+  # 构建配置
+  OUTPUT_DIR: "build"                    # 输出目录
+  LINUX_STATIC_FLAGS: "-static-libgcc -static-libstdc++"  # Linux静态链接标志
+  WINDOWS_STATIC_FLAGS: "-static"        # Windows静态链接标志
+  MACOS_ARCH_FLAGS_x64: "-arch x86_64"   # macOS x64架构标志
+  MACOS_ARCH_FLAGS_arm64: "-arch arm64 -target arm64-apple-macos11"  # macOS arm64架构标志
+  
+  # 字符集配置
+  INPUT_CHARSET: "UTF-8"                 # 输入文件编码
+  WINDOWS_UTF8_FLAGS: "-fexec-charset=UTF-8"  # Windows UTF-8输出编码
+  WINDOWS_GBK_FLAGS: "-fexec-charset=GBK"    # Windows GBK输出编码
+
+jobs:
+  build:
+    runs-on: ${{ matrix.host }}
+    strategy:
+      matrix:
+        include:
+          # 在此处扩展或修改需要支持的平台配置
+          - host: ubuntu-latest
+            target: x86_64-ubuntu
+            arch: x64
+            compiler: g++
+            exe: ./${{ env.PROJECT_NAME }}
+            testable: true
+          - host: ubuntu-latest
+            target: arm64-ubuntu
+            arch: arm64
+            compiler: aarch64-linux-gnu-g++
+            exe: qemu-aarch64 ./${{ env.PROJECT_NAME }}
+            testable: false
+          - host: windows-latest
+            target: x86-windows
+            arch: x86
+            compiler: i686-w64-mingw32-g++
+            exe: .\${{ env.PROJECT_NAME }}.exe
+            gbk-exe: .\${{ env.PROJECT_NAME }}-GBK.exe
+            testable: true
+          - host: windows-latest
+            target: x64-windows
+            arch: x64
+            compiler: x86_64-w64-mingw32-g++
+            exe: .\${{ env.PROJECT_NAME }}.exe
+            gbk-exe: .\${{ env.PROJECT_NAME }}-GBK.exe
+            testable: true
+          - host: macos-latest
+            target: x64-macos
+            arch: x64
+            compiler: g++
+            exe: ./${{ env.PROJECT_NAME }}
+            testable: true
+          - host: macos-latest
+            target: arm64-macos
+            arch: arm64
+            compiler: g++
+            exe: ./${{ env.PROJECT_NAME }}
+            testable: true
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 配置 Ubuntu 构建环境
+      if: startsWith(matrix.host, 'ubuntu')
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ${{ matrix.compiler }}
+        if [ "${{ matrix.arch }}" = "arm64" ]; then
+          sudo apt-get install -y qemu-user
+        fi
+
+    - name: 配置 Windows 构建环境
+      if: startsWith(matrix.host, 'windows')
+      run: |
+        choco install -y 7zip
+        if ("${{ matrix.arch }}" -eq "x86") {
+          choco install -y mingw --params="/InstallDir:C:/mingw32 /Architecture:x86"
+          echo "C:\mingw32\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+        } else {
+          choco install -y mingw --params="/InstallDir:C:/mingw64 /Architecture:x64"
+          echo "C:\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+        }
+
+    - name: 配置 macOS 构建环境
+      if: startsWith(matrix.host, 'macos')
+      run: |
+        xcode-select --install 2>/dev/null || true
+        which brew || /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        brew install gcc
+
+    - name: 验证编译器 (Linux/macOS)
+      if: startsWith(matrix.host, 'ubuntu') || startsWith(matrix.host, 'macos')
+      run: |
+        which ${{ matrix.compiler }} || echo "编译器 ${{ matrix.compiler }} 未找到"
+        ${{ matrix.compiler }} --version || echo "无法获取版本信息"
+
+    - name: 验证编译器 (Windows)
+      if: startsWith(matrix.host, 'windows')
+      shell: pwsh
+      run: |
+        $compiler = "${{ matrix.compiler }}"
+        Write-Host "查找编译器: $compiler"
+        
+        try {
+          & $compiler --version
+          Write-Host "编译器找到并工作正常"
+        } catch {
+          Write-Host "编译器未找到或无法运行: $($_.Exception.Message)"
+          
+          if (${{ matrix.arch }} -eq "x86") {
+            $potentialPaths = @(
+              "C:\mingw32\bin\i686-w64-mingw32-g++.exe",
+              "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw32\bin\i686-w64-mingw32-g++.exe",
+              "C:\msys64\mingw32\bin\i686-w64-mingw32-g++.exe"
+            )
+          } else {
+            $potentialPaths = @(
+              "C:\mingw64\bin\x86_64-w64-mingw32-g++.exe",
+              "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin\x86_64-w64-mingw32-g++.exe",
+              "C:\msys64\mingw64\bin\x86_64-w64-mingw32-g++.exe"
+            )
+          }
+          
+          foreach ($path in $potentialPaths) {
+            if (Test-Path $path) {
+              Write-Host "找到编译器在: $path"
+              & $path --version
+              $dir = Split-Path $path -Parent
+              echo "$dir" | Out-File -FilePath $env:GITHUB_PATH -Append
+              break
+            }
+          }
+        }
+
+    - name: 创建构建目录
+      run: mkdir -p ${{ env.OUTPUT_DIR }}
+
+    - name: 构建 Linux 项目
+      if: startsWith(matrix.host, 'ubuntu')
+      run: |
+        ${{ matrix.compiler }} ${{ env.MAIN_SOURCE_FILE }} -o ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }} \
+          -std=${{ env.CXX_STANDARD }} \
+          ${{ matrix.arch == 'x64' && env.LINUX_STATIC_FLAGS || '' }} \
+          -finput-charset=${{ env.INPUT_CHARSET }}
+
+    - name: 构建 Windows 项目
+      if: startsWith(matrix.host, 'windows')
+      shell: pwsh
+      run: |
+        $outputExe = "${{ env.OUTPUT_DIR }}\${{ env.PROJECT_NAME }}.exe"
+        $gbkOutputExe = "${{ env.OUTPUT_DIR }}\${{ env.PROJECT_NAME }}-GBK.exe"
+        
+        try {
+          Write-Host "编译GBK版本..."
+          & ${{ matrix.compiler }} ${{ env.MAIN_SOURCE_FILE }} -o $gbkOutputExe \
+            -std=${{ env.CXX_STANDARD }} ${{ env.WINDOWS_STATIC_FLAGS }} \
+            -finput-charset=${{ env.INPUT_CHARSET }} ${{ env.WINDOWS_GBK_FLAGS }}
+          
+          Write-Host "编译UTF-8版本..."
+          & ${{ matrix.compiler }} ${{ env.MAIN_SOURCE_FILE }} -o $outputExe \
+            -std=${{ env.CXX_STANDARD }} ${{ env.WINDOWS_STATIC_FLAGS }} \
+            -finput-charset=${{ env.INPUT_CHARSET }} ${{ env.WINDOWS_UTF8_FLAGS }}
+        } catch {
+          if (${{ matrix.arch }} -eq "x86") {
+            Write-Host "尝试备用编译方法..."
+            & g++ ${{ env.MAIN_SOURCE_FILE }} -o $gbkOutputExe -std=${{ env.CXX_STANDARD }} -m32 \
+              -finput-charset=${{ env.INPUT_CHARSET }} ${{ env.WINDOWS_GBK_FLAGS }}
+            & g++ ${{ env.MAIN_SOURCE_FILE }} -o $outputExe -std=${{ env.CXX_STANDARD }} -m32 \
+              -finput-charset=${{ env.INPUT_CHARSET }} ${{ env.WINDOWS_UTF8_FLAGS }}
+          } else {
+            throw $_
+          }
+        }
+        
+        if (-not (Test-Path $outputExe)) { exit 1 }
+        if (-not (Test-Path $gbkOutputExe)) { exit 1 }
+
+    - name: 构建 macOS 项目
+      if: startsWith(matrix.host, 'macos')
+      run: |
+        ${{ matrix.compiler }} ${{ env.MAIN_SOURCE_FILE }} -o ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }} \
+          -std=${{ env.CXX_STANDARD }} \
+          ${{ matrix.arch == 'x64' && env.MACOS_ARCH_FLAGS_x64 || env.MACOS_ARCH_FLAGS_arm64 }} \
+          -finput-charset=${{ env.INPUT_CHARSET }}
+
+    - name: 检查构建结果 (Linux/macOS)
+      if: startsWith(matrix.host, 'ubuntu') || startsWith(matrix.host, 'macos')
+      run: |
+        ls -la ${{ env.OUTPUT_DIR }}/
+        if [ -f "${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }}" ]; then
+          echo "构建成功!"
+          file ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }}
+        else
+          echo "构建失败"
+          exit 1
+        fi
+
+    - name: 检查构建结果 (Windows)
+      if: startsWith(matrix.host, 'windows')
+      shell: pwsh
+      run: |
+        Get-ChildItem ${{ env.OUTPUT_DIR }}/
+        if (-not (Test-Path "${{ env.OUTPUT_DIR }}\${{ env.PROJECT_NAME }}.exe")) { exit 1 }
+        if (-not (Test-Path "${{ env.OUTPUT_DIR }}\${{ env.PROJECT_NAME }}-GBK.exe")) { exit 1 }
+
+    - name: 运行测试 (Linux/macOS)
+      if: matrix.testable && (startsWith(matrix.host, 'ubuntu') || startsWith(matrix.host, 'macos'))
+      run: |
+        cd ${{ env.OUTPUT_DIR }}
+        ${{ matrix.exe }} --version || echo "测试执行失败"
+
+    - name: 运行测试 (Windows)
+      if: matrix.testable && startsWith(matrix.host, 'windows')
+      shell: pwsh
+      run: |
+        cd ${{ env.OUTPUT_DIR }}
+        & ${{ matrix.exe }} --version
+        & ${{ matrix.gbk-exe }} --version
+
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.PROJECT_NAME }}-${{ matrix.target }}
+        path: |
+          ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }}
+          ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }}.exe
+          ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }}-GBK.exe
+        if-no-files-found: error
