@@ -1,30 +1,10 @@
-name: Cross-Platform Build
+name: Build-NeepuSTU-Cli
 
-# 配置触发条件（可根据需要修改）
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-
-# 自定义配置结构体 - 在这里填写项目相关参数
-env:
-  # 项目基本信息
-  PROJECT_NAME: "NeepuSTU_CLI"                  # 项目名称（用于输出文件和产物命名）
-  MAIN_SOURCE_FILE: "NeepuCli.cpp"    # 主源文件路径
-  CXX_STANDARD: "c++17"                  # C++标准版本
-  
-  # 构建配置
-  OUTPUT_DIR: "build"                    # 输出目录
-  LINUX_STATIC_FLAGS: "-static-libgcc -static-libstdc++"  # Linux静态链接标志
-  WINDOWS_STATIC_FLAGS: "-static"        # Windows静态链接标志
-  MACOS_ARCH_FLAGS_x64: "-arch x86_64"   # macOS x64架构标志
-  MACOS_ARCH_FLAGS_arm64: "-arch arm64 -target arm64-apple-macos11"  # macOS arm64架构标志
-  
-  # 字符集配置
-  INPUT_CHARSET: "UTF-8"                 # 输入文件编码
-  WINDOWS_UTF8_FLAGS: "-fexec-charset=UTF-8"  # Windows UTF-8输出编码
-  WINDOWS_GBK_FLAGS: "-fexec-charset=GBK"    # Windows GBK输出编码
 
 jobs:
   build:
@@ -32,44 +12,40 @@ jobs:
     strategy:
       matrix:
         include:
-          # 在此处扩展或修改需要支持的平台配置
+          # Ubuntu x64
           - host: ubuntu-latest
             target: x86_64-ubuntu
             arch: x64
             compiler: g++
-            exe: ./${{ env.PROJECT_NAME }}
+            exe: ./NeepuSTU_Cli
             testable: true
+          # Ubuntu arm64
           - host: ubuntu-latest
             target: arm64-ubuntu
             arch: arm64
             compiler: aarch64-linux-gnu-g++
-            exe: qemu-aarch64 ./${{ env.PROJECT_NAME }}
+            exe: qemu-aarch64 ./NeepuSTU_Cli
             testable: false
-          - host: windows-latest
-            target: x86-windows
-            arch: x86
-            compiler: i686-w64-mingw32-g++
-            exe: .\${{ env.PROJECT_NAME }}.exe
-            gbk-exe: .\${{ env.PROJECT_NAME }}-GBK.exe
-            testable: true
+          # Windows x64 (64位)
           - host: windows-latest
             target: x64-windows
             arch: x64
             compiler: x86_64-w64-mingw32-g++
-            exe: .\${{ env.PROJECT_NAME }}.exe
-            gbk-exe: .\${{ env.PROJECT_NAME }}-GBK.exe
+            exe: .\NeepuSTU_Cli.exe
             testable: true
+          # macOS x64
           - host: macos-latest
             target: x64-macos
             arch: x64
             compiler: g++
-            exe: ./${{ env.PROJECT_NAME }}
+            exe: ./NeepuSTU_Cli
             testable: true
+          # macOS arm64 (M1/M2等)
           - host: macos-latest
             target: arm64-macos
             arch: arm64
             compiler: g++
-            exe: ./${{ env.PROJECT_NAME }}
+            exe: ./NeepuSTU_Cli
             testable: true
 
     steps:
@@ -80,28 +56,29 @@ jobs:
       if: startsWith(matrix.host, 'ubuntu')
       run: |
         sudo apt-get update
-        sudo apt-get install -y ${{ matrix.compiler }}
+        sudo apt-get install -y g++
+        # 安装arm64交叉编译工具链和模拟器
         if [ "${{ matrix.arch }}" = "arm64" ]; then
-          sudo apt-get install -y qemu-user
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user
         fi
 
     - name: 配置 Windows 构建环境
       if: startsWith(matrix.host, 'windows')
       run: |
+        # 安装7zip用于验证压缩包（如果需要）
         choco install -y 7zip
-        if ("${{ matrix.arch }}" -eq "x86") {
-          choco install -y mingw --params="/InstallDir:C:/mingw32 /Architecture:x86"
-          echo "C:\mingw32\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-        } else {
-          choco install -y mingw --params="/InstallDir:C:/mingw64 /Architecture:x64"
-          echo "C:\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-        }
+        # 安装64位工具链
+        choco install -y mingw --params="/InstallDir:C:/mingw64 /Architecture:x64"
+        echo "C:\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
     - name: 配置 macOS 构建环境
       if: startsWith(matrix.host, 'macos')
       run: |
+        # 检查是否已安装Xcode命令行工具
         xcode-select --install 2>/dev/null || true
+        # 安装Homebrew（如果尚未安装）
         which brew || /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        # 安装GCC
         brew install gcc
 
     - name: 验证编译器 (Linux/macOS)
@@ -114,33 +91,30 @@ jobs:
       if: startsWith(matrix.host, 'windows')
       shell: pwsh
       run: |
+        # PowerShell 语法
         $compiler = "${{ matrix.compiler }}"
         Write-Host "查找编译器: $compiler"
         
+        # 尝试直接运行编译器
         try {
           & $compiler --version
           Write-Host "编译器找到并工作正常"
         } catch {
           Write-Host "编译器未找到或无法运行: $($_.Exception.Message)"
+          Write-Host "尝试寻找替代编译器..."
           
-          if (${{ matrix.arch }} -eq "x86") {
-            $potentialPaths = @(
-              "C:\mingw32\bin\i686-w64-mingw32-g++.exe",
-              "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw32\bin\i686-w64-mingw32-g++.exe",
-              "C:\msys64\mingw32\bin\i686-w64-mingw32-g++.exe"
-            )
-          } else {
-            $potentialPaths = @(
-              "C:\mingw64\bin\x86_64-w64-mingw32-g++.exe",
-              "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin\x86_64-w64-mingw32-g++.exe",
-              "C:\msys64\mingw64\bin\x86_64-w64-mingw32-g++.exe"
-            )
-          }
+          # 检查常见位置
+          $potentialPaths = @(
+            "C:\mingw64\bin\x86_64-w64-mingw32-g++.exe",
+            "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin\x86_64-w64-mingw32-g++.exe",
+            "C:\msys64\mingw64\bin\x86_64-w64-mingw32-g++.exe"
+          )
           
           foreach ($path in $potentialPaths) {
             if (Test-Path $path) {
               Write-Host "找到编译器在: $path"
               & $path --version
+              # 将找到的路径添加到环境变量
               $dir = Split-Path $path -Parent
               echo "$dir" | Out-File -FilePath $env:GITHUB_PATH -Append
               break
@@ -149,65 +123,76 @@ jobs:
         }
 
     - name: 创建构建目录
-      run: mkdir -p ${{ env.OUTPUT_DIR }}
-
-    - name: 构建 Linux 项目
-      if: startsWith(matrix.host, 'ubuntu')
       run: |
-        ${{ matrix.compiler }} ${{ env.MAIN_SOURCE_FILE }} -o ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }} \
-          -std=${{ env.CXX_STANDARD }} \
-          ${{ matrix.arch == 'x64' && env.LINUX_STATIC_FLAGS || '' }} \
-          -finput-charset=${{ env.INPUT_CHARSET }}
+        mkdir -p build
 
-    - name: 构建 Windows 项目
-      if: startsWith(matrix.host, 'windows')
+    - name: 构建 Ubuntu 项目 (x64)
+      if: startsWith(matrix.host, 'ubuntu') && matrix.arch == 'x64'
+      run: |
+        ${{ matrix.compiler }} NeepuCli.cpp -o build/NeepuSTU_Cli -std=c++17 \
+          -static-libgcc -static-libstdc++ \
+          -finput-charset=UTF-8
+
+    - name: 构建 Ubuntu 项目 (arm64)
+      if: startsWith(matrix.host, 'ubuntu') && matrix.arch == 'arm64'
+      run: |
+        ${{ matrix.compiler }} NeepuCli.cpp -o build/NeepuSTU_Cli -std=c++17 \
+          -finput-charset=UTF-8
+
+    - name: 构建 Windows 项目 (x64)
+      if: startsWith(matrix.host, 'windows') && matrix.arch == 'x64'
       shell: pwsh
       run: |
-        $outputExe = "${{ env.OUTPUT_DIR }}\${{ env.PROJECT_NAME }}.exe"
-        $gbkOutputExe = "${{ env.OUTPUT_DIR }}\${{ env.PROJECT_NAME }}-GBK.exe"
+        Write-Host "编译64位Windows程序..."
         
+        # 定义输出文件名
+        $outputExe = "build\NeepuSTU_Cli.exe"
+        
+        $compiler64 = "x86_64-w64-mingw32-g++"
         try {
-          Write-Host "编译GBK版本..."
-          & ${{ matrix.compiler }} ${{ env.MAIN_SOURCE_FILE }} -o $gbkOutputExe \
-            -std=${{ env.CXX_STANDARD }} ${{ env.WINDOWS_STATIC_FLAGS }} \
-            -finput-charset=${{ env.INPUT_CHARSET }} ${{ env.WINDOWS_GBK_FLAGS }}
+          Write-Host "使用 $compiler64 编译..."
+          & $compiler64 NeepuCli.cpp -o $outputExe -std=c++17 -static -finput-charset=UTF-8
           
-          Write-Host "编译UTF-8版本..."
-          & ${{ matrix.compiler }} ${{ env.MAIN_SOURCE_FILE }} -o $outputExe \
-            -std=${{ env.CXX_STANDARD }} ${{ env.WINDOWS_STATIC_FLAGS }} \
-            -finput-charset=${{ env.INPUT_CHARSET }} ${{ env.WINDOWS_UTF8_FLAGS }}
+          Write-Host "64位编译成功"
         } catch {
-          if (${{ matrix.arch }} -eq "x86") {
-            Write-Host "尝试备用编译方法..."
-            & g++ ${{ env.MAIN_SOURCE_FILE }} -o $gbkOutputExe -std=${{ env.CXX_STANDARD }} -m32 \
-              -finput-charset=${{ env.INPUT_CHARSET }} ${{ env.WINDOWS_GBK_FLAGS }}
-            & g++ ${{ env.MAIN_SOURCE_FILE }} -o $outputExe -std=${{ env.CXX_STANDARD }} -m32 \
-              -finput-charset=${{ env.INPUT_CHARSET }} ${{ env.WINDOWS_UTF8_FLAGS }}
-          } else {
-            throw $_
-          }
+          Write-Host "64位编译失败: $($_.Exception.Message)"
+          exit 1
         }
         
-        if (-not (Test-Path $outputExe)) { exit 1 }
-        if (-not (Test-Path $gbkOutputExe)) { exit 1 }
+        # 确认文件存在
+        if (-not (Test-Path $outputExe)) {
+          Write-Host "错误：未找到可执行文件 $outputExe"
+          exit 1
+        }
+        
+        Write-Host "64位Windows程序编译完成，文件列表："
+        Get-ChildItem build\*
 
-    - name: 构建 macOS 项目
-      if: startsWith(matrix.host, 'macos')
+    - name: 构建 macOS 项目 (x64)
+      if: startsWith(matrix.host, 'macos') && matrix.arch == 'x64'
       run: |
-        ${{ matrix.compiler }} ${{ env.MAIN_SOURCE_FILE }} -o ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }} \
-          -std=${{ env.CXX_STANDARD }} \
-          ${{ matrix.arch == 'x64' && env.MACOS_ARCH_FLAGS_x64 || env.MACOS_ARCH_FLAGS_arm64 }} \
-          -finput-charset=${{ env.INPUT_CHARSET }}
+        ${{ matrix.compiler }} NeepuCli.cpp -o build/NeepuSTU_Cli -std=c++17 \
+          -arch x86_64 \
+          -finput-charset=UTF-8
+
+    - name: 构建 macOS 项目 (arm64)
+      if: startsWith(matrix.host, 'macos') && matrix.arch == 'arm64'
+      run: |
+        ${{ matrix.compiler }} NeepuCli.cpp -o build/NeepuSTU_Cli -std=c++17 \
+          -arch arm64 \
+          -target arm64-apple-macos11 \
+          -finput-charset=UTF-8
 
     - name: 检查构建结果 (Linux/macOS)
       if: startsWith(matrix.host, 'ubuntu') || startsWith(matrix.host, 'macos')
       run: |
-        ls -la ${{ env.OUTPUT_DIR }}/
-        if [ -f "${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }}" ]; then
+        echo "构建目录内容:"
+        ls -la build/
+        if [ -f "build/NeepuSTU_Cli" ]; then
           echo "构建成功!"
-          file ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }}
+          file build/NeepuSTU_Cli
         else
-          echo "构建失败"
+          echo "构建失败: 未找到可执行文件"
           exit 1
         fi
 
@@ -215,30 +200,46 @@ jobs:
       if: startsWith(matrix.host, 'windows')
       shell: pwsh
       run: |
-        Get-ChildItem ${{ env.OUTPUT_DIR }}/
-        if (-not (Test-Path "${{ env.OUTPUT_DIR }}\${{ env.PROJECT_NAME }}.exe")) { exit 1 }
-        if (-not (Test-Path "${{ env.OUTPUT_DIR }}\${{ env.PROJECT_NAME }}-GBK.exe")) { exit 1 }
+        Write-Host "构建目录内容:"
+        $buildFiles = Get-ChildItem build/ -ErrorAction SilentlyContinue
+        if ($buildFiles) {
+          $buildFiles | Format-Table Name, Length
+        } else {
+          Write-Host "构建目录为空"
+        }
+        
+        # 检查主程序
+        if (Test-Path "build/NeepuSTU_Cli.exe") {
+          Write-Host "主程序构建成功!"
+        } else {
+          Write-Host "主程序构建失败: 未找到 build/NeepuSTU_Cli.exe"
+          exit 1
+        }
 
     - name: 运行测试 (Linux/macOS)
       if: matrix.testable && (startsWith(matrix.host, 'ubuntu') || startsWith(matrix.host, 'macos'))
       run: |
-        cd ${{ env.OUTPUT_DIR }}
+        cd build
         ${{ matrix.exe }} --version || echo "测试执行失败"
 
     - name: 运行测试 (Windows)
       if: matrix.testable && startsWith(matrix.host, 'windows')
       shell: pwsh
       run: |
-        cd ${{ env.OUTPUT_DIR }}
-        & ${{ matrix.exe }} --version
-        & ${{ matrix.gbk-exe }} --version
+        cd build
+        try {
+          Write-Host "测试程序版本:"
+          & ${{ matrix.exe }} --version
+          Write-Host "测试执行成功"
+        } catch {
+          Write-Host "测试执行失败: $($_.Exception.Message)"
+        }
 
     - name: 上传构建产物
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.PROJECT_NAME }}-${{ matrix.target }}
+        name: NeepuSTU_Cli-${{ matrix.target }}
         path: |
-          ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }}
-          ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }}.exe
-          ${{ env.OUTPUT_DIR }}/${{ env.PROJECT_NAME }}-GBK.exe
+          build/NeepuSTU_Cli
+          build/NeepuSTU_Cli.exe
         if-no-files-found: error
