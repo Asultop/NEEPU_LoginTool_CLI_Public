@@ -130,7 +130,7 @@ jobs:
       if: startsWith(matrix.host, 'ubuntu') && matrix.arch == 'x64'
       run: |
         ${{ matrix.compiler }} NeepuCli.cpp -o build/NeepuSTU_Cli -std=c++17 \
-          -static-libgcc -O2-static-libstdc++ \
+          -static-libgcc -O2 -static-libstdc++ \
           -finput-charset=UTF-8
 
     - name: 构建 Ubuntu 项目 (arm64)
