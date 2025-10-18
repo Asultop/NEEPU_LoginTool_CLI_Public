@@ -11,6 +11,8 @@
 #include "3rd/NEEPU_SDK.h"
 
 #define DATA_JSON "data.json"
+#define VERSION "alpha-v0.0.1"
+
 using namespace AsulKit::FileTools;
 using namespace NEEPULoginSDK;
 using std::cout,std::endl,std::cerr;
@@ -70,12 +72,17 @@ int main(int argc, char** argv) {
         try {
             cxxopts::Options options("NeepuCLI", "登陆到 NEEPU_STU -- CLI Version");
             options.add_options()
+                ("v,version","显示版本信息")
                 ("h,help", "显示帮助信息")
                 ("a,account", "输入账户名",cxxopts::value<std::string>())
                 ("p,password", "输入密码", cxxopts::value<std::string>())
                 ("l,pool", f("输入运营商 [{GREEN}:{DARK_GRAY},{RED}:{DARK_GRAY}]","联通","liantong","移动","yidong"), cxxopts::value<std::string>())
                 ;
             auto result = options.parse(argc, argv);
+            if(result.count("version")){
+                cout << f("{YELLOW} - {LIGHT_MAGENTA}\n{LIGHT_GRAY}: {DARK_GRAY}",argv[0],VERSION,"编译时间",__DATE__);
+                return Accepted;
+            }
             if(result.count("help")){
                 options.show_positional_help();
                 return Accepted;
