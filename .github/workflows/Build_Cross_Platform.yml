@@ -151,7 +151,7 @@ jobs:
         $compiler64 = "x86_64-w64-mingw32-g++"
         try {
           Write-Host "使用 $compiler64 编译..."
-          & $compiler64 NeepuCli.cpp -o $outputExe -std=c++17 -static -finput-charset=UTF-8
+          & $compiler64 NeepuCli.cpp -o $outputExe -std=c++17 -finput-charset=UTF-8
           
           Write-Host "64位编译成功"
         } catch {
