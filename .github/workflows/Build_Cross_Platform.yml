@@ -130,13 +130,13 @@ jobs:
       if: startsWith(matrix.host, 'ubuntu') && matrix.arch == 'x64'
       run: |
         ${{ matrix.compiler }} NeepuCli.cpp -o build/NeepuSTU_Cli -std=c++17 \
-          -static-libgcc -static-libstdc++ \
+          -static-libgcc -O2-static-libstdc++ \
           -finput-charset=UTF-8
 
     - name: 构建 Ubuntu 项目 (arm64)
       if: startsWith(matrix.host, 'ubuntu') && matrix.arch == 'arm64'
       run: |
-        ${{ matrix.compiler }} NeepuCli.cpp -o build/NeepuSTU_Cli -std=c++17 \
+        ${{ matrix.compiler }} NeepuCli.cpp -O2 -o build/NeepuSTU_Cli -std=c++17 \
           -finput-charset=UTF-8
 
     - name: 构建 Windows 项目 (x64)
@@ -151,7 +151,7 @@ jobs:
         $compiler64 = "x86_64-w64-mingw32-g++"
         try {
           Write-Host "使用 $compiler64 编译..."
-          & $compiler64 NeepuCli.cpp -o $outputExe -std=c++17 -finput-charset=UTF-8
+          & $compiler64 NeepuCli.cpp -O2 -o $outputExe -std=c++17 -static -lws2_32 -finput-charset=UTF-8
           
           Write-Host "64位编译成功"
         } catch {
@@ -171,14 +171,14 @@ jobs:
     - name: 构建 macOS 项目 (x64)
       if: startsWith(matrix.host, 'macos') && matrix.arch == 'x64'
       run: |
-        ${{ matrix.compiler }} NeepuCli.cpp -o build/NeepuSTU_Cli -std=c++17 \
+        ${{ matrix.compiler }} NeepuCli.cpp -O2 -o build/NeepuSTU_Cli -std=c++17 \
           -arch x86_64 \
           -finput-charset=UTF-8
 
     - name: 构建 macOS 项目 (arm64)
       if: startsWith(matrix.host, 'macos') && matrix.arch == 'arm64'
       run: |
-        ${{ matrix.compiler }} NeepuCli.cpp -o build/NeepuSTU_Cli -std=c++17 \
+        ${{ matrix.compiler }} NeepuCli.cpp -O2 -o build/NeepuSTU_Cli -std=c++17 \
           -arch arm64 \
           -target arm64-apple-macos11 \
           -finput-charset=UTF-8
