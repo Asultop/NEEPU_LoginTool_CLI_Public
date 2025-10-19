@@ -5,7 +5,6 @@
 #include "3rd/cxxopts.h"
 #include "3rd/json.hpp"
 #include "3rd/AsulFormatString.h"
-#include "3rd/httplib.h"
 #include "3rd/VDXSingle.h"
 #include "3rd/FileTools.h"
 #include "3rd/NEEPU_SDK.h"

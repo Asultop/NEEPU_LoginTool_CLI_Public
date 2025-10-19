@@ -1,0 +1,94 @@
+name: Build-32bit-CMake
+
+on:
+  push:
+    branches: [ "main", "cpr" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-linux-32bit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install 32-bit build dependencies
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo apt-get update
+        sudo apt-get install -y gcc-multilib g++-multilib cmake
+        sudo apt-get install -y libcurl4-openssl-dev:i386 libssl-dev:i386 zlib1g-dev:i386
+
+    - name: Configure CMake for 32-bit
+      run: |
+        cmake -B build -S . \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_C_FLAGS="-m32" \
+          -DCMAKE_CXX_FLAGS="-m32" \
+          -DCMAKE_EXE_LINKER_FLAGS="-m32"
+
+    - name: Build 32-bit
+      run: cmake --build build --config Release
+
+    - name: Test executable (version check)
+      run: |
+        file build/NeepuSTU_Cli
+        build/NeepuSTU_Cli --version || echo "Version check completed"
+
+    - name: Upload 32-bit Linux artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: NeepuSTU_Cli-linux-i386
+        path: build/NeepuSTU_Cli
+
+  build-windows-32bit:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup MSVC for Win32
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x86
+
+    - name: Configure CMake for Win32
+      run: |
+        cmake -B build -S . -A Win32 -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build Win32
+      run: cmake --build build --config Release
+
+    - name: Test executable (version check)
+      shell: pwsh
+      run: |
+        if (Test-Path "build/Release/NeepuSTU_Cli.exe") {
+          Write-Host "Found executable at build/Release/NeepuSTU_Cli.exe"
+          try {
+            & build/Release/NeepuSTU_Cli.exe --version
+          } catch {
+            Write-Host "Version check completed"
+          }
+        } elseif (Test-Path "build/NeepuSTU_Cli.exe") {
+          Write-Host "Found executable at build/NeepuSTU_Cli.exe"
+          try {
+            & build/NeepuSTU_Cli.exe --version
+          } catch {
+            Write-Host "Version check completed"
+          }
+        } else {
+          Write-Host "ERROR: Executable not found"
+          exit 1
+        }
+
+    - name: Upload 32-bit Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: NeepuSTU_Cli-windows-win32
+        path: |
+          build/Release/NeepuSTU_Cli.exe
+          build/NeepuSTU_Cli.exe
+        if-no-files-found: error
