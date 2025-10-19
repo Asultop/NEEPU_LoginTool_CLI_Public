@@ -1,13 +1,14 @@
 #ifndef NEEPU_SDK_H
 #define NEEPU_SDK_H
 #include <iostream>
-#include "httplib.h"
+#include <sstream>
+#include <iomanip>
+#include <cpr/cpr.h>
 #include "json.hpp"
 namespace NEEPULoginSDK{
 
 
 using json = nlohmann::json;
-using namespace httplib;
 
 
 struct LoginRequest {
@@ -97,35 +98,39 @@ std::string buildUrlParam(const json& params) {
     return result;
 }
 LoginResponse sendLoginRequest(const std::string& api_url, const LoginRequest& req) {
-	Client client("202.198.8.232");
-
 	json req_json=LoginRequest2Json(req);
 	
-	auto res = client.Post(
-						   "/api/login.php",  // API路径
-						   buildUrlParam(req_json),   // JSON字符串
-						   "application/x-www-form-urlencoded" // Content-Type
-						   );
+	// Build form-encoded body from buildUrlParam (removing leading '?')
+	std::string body = buildUrlParam(req_json);
+	if (!body.empty() && body[0] == '?') {
+		body = body.substr(1);
+	}
+	
+	// Make POST request using cpr
+	auto res = cpr::Post(
+		cpr::Url{api_url},
+		cpr::Body{body},
+		cpr::Header{{"Content-Type", "application/x-www-form-urlencoded"}}
+	);
 	
 	LoginResponse resp;
-	if (!res) {
+	if (res.error.code != cpr::ErrorCode::OK) {
 		resp.success = false;
 		resp.retCode = -1;
-		// httplib::Result does not have error_message(); provide a generic failure message
-		resp.msg = "请求失败：无法连接或无响应";
+		resp.msg = "请求失败：" + res.error.message;
 		return resp;
 	}
 	
-	if (res->status != 200) {
+	if (res.status_code != 200) {
 		resp.success = false;
-		resp.retCode = res->status;
-		resp.msg = "HTTP错误：" + std::to_string(res->status);
+		resp.retCode = res.status_code;
+		resp.msg = "HTTP错误：" + std::to_string(res.status_code);
 		return resp;
 	}
 	
 	// 解析JSON响应
 	try {
-		json resp_json = json::parse(res->body);
+		json resp_json = json::parse(res.text);
 		resp.retCode = resp_json["ret"].get<int>();
 		resp.success = (resp.retCode == 0 || resp.retCode == 3);
 		resp.msg = resp_json["msg"].get<std::string>();
@@ -141,34 +146,39 @@ LoginResponse sendLoginRequest(const std::string& api_url, const LoginRequest& r
 	return resp;
 }
 LoginResponse sendGetStatusRequest(const std::string& api_url, const LoginRequest& req){
-	Client client("202.198.8.232");
-
 	json req_json=LoginRequest2Json(req);
-	auto res = client.Post(
-						   "/api/stat.php",  // API路径
-						   buildUrlParam(req_json),   // JSON字符串
-						   "application/x-www-form-urlencoded" // Content-Type
-						   );
+	
+	// Build form-encoded body from buildUrlParam (removing leading '?')
+	std::string body = buildUrlParam(req_json);
+	if (!body.empty() && body[0] == '?') {
+		body = body.substr(1);
+	}
+	
+	// Make POST request using cpr
+	auto res = cpr::Post(
+		cpr::Url{api_url},
+		cpr::Body{body},
+		cpr::Header{{"Content-Type", "application/x-www-form-urlencoded"}}
+	);
 	
 	LoginResponse resp;
-	if (!res) {
+	if (res.error.code != cpr::ErrorCode::OK) {
 		resp.success = false;
 		resp.retCode = -1;
-		// httplib::Result does not have error_message(); provide a generic failure message
-		resp.msg = "请求失败：无法连接或无响应";
+		resp.msg = "请求失败：" + res.error.message;
 		return resp;
 	}
 	
-	if (res->status != 200) {
+	if (res.status_code != 200) {
 		resp.success = false;
-		resp.retCode = res->status;
-		resp.msg = "HTTP错误：" + std::to_string(res->status);
+		resp.retCode = res.status_code;
+		resp.msg = "HTTP错误：" + std::to_string(res.status_code);
 		return resp;
 	}
 	
 	// 解析JSON响应
 	try {
-		json resp_json = json::parse(res->body);
+		json resp_json = json::parse(res.text);
 		resp.retCode = resp_json["ret"].get<int>();
 		resp.success = (resp.retCode == 0 || resp.retCode == 3);
 		resp.msg = resp_json["msg"].get<std::string>();
