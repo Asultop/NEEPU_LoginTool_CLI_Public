@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
                 ;
             auto result = options.parse(argc, argv);
             if(result.count("version")){
-                cout << f("{YELLOW} - {LIGHT_MAGENTA}\n{LIGHT_GRAY}: {DARK_GRAY}",argv[0],VERSION,"编译时间",__DATE__);
+                cout << f("{YELLOW} - {LIGHT_MAGENTA}\n{LIGHT_GRAY}: {DARK_GRAY}\n",argv[0],VERSION,"编译时间",__DATE__);
                 return Accepted;
             }
             if(result.count("help")){

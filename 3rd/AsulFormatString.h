@@ -30,22 +30,41 @@ public:
 
     void installColorFormatAdapter() {
         installFormatAdapter({
-            {"RED", "\033[31m{}\033[0m"},
-            {"GREEN", "\033[32m{}\033[0m"},
-            {"YELLOW", "\033[33m{}\033[0m"},
-            {"BLUE", "\033[34m{}\033[0m"},
-            {"MAGENTA", "\033[35m{}\033[0m"},
-            {"CYAN", "\033[36m{}\033[0m"},
-            {"LIGHT_GRAY", "\033[37m{}\033[0m"},
-            {"DARK_GRAY", "\033[90m{}\033[0m"},
-            {"LIGHT_RED", "\033[91m{}\033[0m"},
-            {"LIGHT_GREEN", "\033[92m{}\033[0m"},
-            {"LIGHT_YELLOW", "\033[93m{}\033[0m"},
-            {"LIGHT_BLUE", "\033[94m{}\033[0m"},
-            {"LIGHT_MAGENTA", "\033[95m{}\033[0m"},
-            {"LIGHT_CYAN", "\033[96m{}\033[0m"},
-            {"WHITE", "\033[97m{}\033[0m"},
-            {"UNDERLINE", "\033[4m{}\033[0m"}
+            // {"RED", "\033[31m{}\033[0m"},
+            // {"GREEN", "\033[32m{}\033[0m"},
+            // {"YELLOW", "\033[33m{}\033[0m"},
+            // {"BLUE", "\033[34m{}\033[0m"},
+            // {"MAGENTA", "\033[35m{}\033[0m"},
+            // {"CYAN", "\033[36m{}\033[0m"},
+            // {"LIGHT_GRAY", "\033[37m{}\033[0m"},
+            // {"DARK_GRAY", "\033[90m{}\033[0m"},
+            // {"LIGHT_RED", "\033[91m{}\033[0m"},
+            // {"LIGHT_GREEN", "\033[92m{}\033[0m"},
+            // {"LIGHT_YELLOW", "\033[93m{}\033[0m"},
+            // {"LIGHT_BLUE", "\033[94m{}\033[0m"},
+            // {"LIGHT_MAGENTA", "\033[95m{}\033[0m"},
+            // {"LIGHT_CYAN", "\033[96m{}\033[0m"},
+            // {"WHITE", "\033[97m{}\033[0m"},
+            // {"UNDERLINE", "\033[4m{}\033[0m"}
+            /*
+            * OpenWRT Not support ANSI escape codes well, so we use custom tags here.
+            */
+            {"RED","{}"},
+            {"GREEN","{}"},
+            {"YELLOW","{}"},
+            {"BLUE","{}"},
+            {"MAGENTA","{}"},
+            {"CYAN","{}"},
+            {"LIGHT_GRAY","{}"},
+            {"DARK_GRAY","{}"},
+            {"LIGHT_RED","{}"},
+            {"LIGHT_GREEN","{}"},
+            {"LIGHT_YELLOW","{}"},
+            {"LIGHT_BLUE","{}"},
+            {"LIGHT_MAGENTA","{}"},
+            {"LIGHT_CYAN","{}"},
+            {"WHITE","{}"},
+            {"UNDERLINE","{}"}
         });
     }
 

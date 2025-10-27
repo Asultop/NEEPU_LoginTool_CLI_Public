@@ -1,3 +1,6 @@
 .exe
 ./NeepuCli
 ./cache
+./.cache
+./.cache/*
+NeepuCli_cpp
