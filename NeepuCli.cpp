@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
                 ("h,help", "显示帮助信息")
                 ("a,account", "输入账户名",cxxopts::value<std::string>())
                 ("p,password", "输入密码", cxxopts::value<std::string>())
-                ("l,pool", f("输入运营商 [{GREEN}:{DARK_GRAY},{RED}:{DARK_GRAY}]","联通","liantong","移动","yidong"), cxxopts::value<std::string>())
+                ("l,pool", f("输入运营商 {}:{},{}:{}","联通","liantong","移动","yidong"), cxxopts::value<std::string>())
                 ;
             auto result = options.parse(argc, argv);
             if(result.count("version")){
@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
                 return Accepted;
             }
             if(result.count("help")){
-                options.show_positional_help();
+                cout<< options.help() <<endl;
                 return Accepted;
             }
             if(result.count("account")) {
